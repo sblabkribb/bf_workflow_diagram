@@ -27,24 +27,9 @@
     * 새로운 명령어를 추가합니다.
     * `vscode.window.createWebviewPanel` API를 사용하여 다이어그램을 표시할 별도의 패널을 생성합니다.
 * **Workflow**:
+
     1.  **명령 실행**: 사용자가 `labnote/.../README.md` 파일이 열린 상태에서 시각화 명령어를 실행합니다.
     2.  **파일 스캔**: 확장 프로그램이 `README.md`를 읽어 연결된 모든 워크플로 파일 경로를 얻습니다.
     3.  **콘텐츠 파싱**: 각 워크플로 파일을 순차적으로 읽어 단위 작업의 목록과 순서를 추출합니다.
     4.  **Mermaid 코드 생성**: 추출된 정보를 바탕으로 Mermaid 순서도 코드를 동적으로 생성합니다.
-        ```mermaid
-        graph TD;
-            subgraph Experiment 001_Metagenome_Screening
-                direction LR
-                
-                subgraph Workflow 001_Library_Construction
-                    A["UHW010: Liquid Handling"] --> B["UHW060: Colony Picking"];
-                end
-                
-                subgraph Workflow 002_Sequencing
-                    C["UHW260: Short-read Analysis"] --> D["USW120: Sequence Trimming"];
-                end
-                
-                Workflow_001_Library_Construction --> Workflow_002_Sequencing;
-            end
-        ```
     5.  **결과 렌더링**: 생성된 코드를 웹뷰 패널에 전달하여 사용자에게 다이어그램을 보여줍니다.
