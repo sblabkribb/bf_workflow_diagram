@@ -1,0 +1,33 @@
+{
+  "name": "labnote-diagram-viewer",
+  "displayName": "Labnote Diagram Viewer",
+  "description": "Visualize labnote workflows as diagrams using Mermaid.js",
+  "version": "0.0.1",
+  "publisher": "YourName",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "activationEvents": [
+    "onCommand:labnote.diagram.view"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "labnote.diagram.view",
+        "title": "Labnote: 현재 실험 다이어그램으로 보기"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "16.x",
+    "typescript": "~5.0.0"
+  }
+}
