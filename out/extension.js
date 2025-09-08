@@ -27,9 +27,14 @@ exports.deactivate = exports.activate = void 0;
 const vscode = __importStar(require("vscode"));
 const webview_1 = require("./webview");
 function activate(context) {
-    const disposable = vscode.commands.registerCommand('labnote.diagram.view', webview_1.showDiagramPanel);
+    console.log('Extension "labnote-diagram-viewer" is now activating...');
+    // showDiagramPanel 함수를 한번 더 감싸서, 명령어 호출 자체를 로깅합니다.
+    const disposable = vscode.commands.registerCommand('labnote.diagram.view', () => {
+        console.log('Command "labnote.diagram.view" was triggered!');
+        (0, webview_1.showDiagramPanel)();
+    });
     context.subscriptions.push(disposable);
-    console.log('Labnote Diagram Viewer is now active!');
+    console.log('Labnote Diagram Viewer is now active and command is registered!');
 }
 exports.activate = activate;
 function deactivate() { }

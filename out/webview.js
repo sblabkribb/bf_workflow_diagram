@@ -29,13 +29,17 @@ const path = __importStar(require("path"));
 const parser_1 = require("./parser");
 const diagramGenerator_1 = require("./diagramGenerator");
 async function showDiagramPanel() {
+    // 함수가 시작되었는지 확인하는 최우선 로그
+    console.log('Function "showDiagramPanel" started.');
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
+        console.error('Execution stopped: No active editor found.'); // 조기 종료 원인 로깅
         vscode.window.showErrorMessage('No active editor found.');
         return;
     }
     const readmePath = editor.document.uri.fsPath;
     if (!readmePath.endsWith('README.md')) {
+        console.error('Execution stopped: Active file is not a README.md.'); // 조기 종료 원인 로깅
         vscode.window.showErrorMessage('Please open a README.md file.');
         return;
     }
@@ -88,8 +92,11 @@ async function showDiagramPanel() {
         }
     }
     // 🧾 파싱 결과 콘솔 출력 (디버깅용)
-    console.log("Parsed Workflows:", workflows);
+    console.log("[Debug] Parser-to-Generator Data:", JSON.stringify(workflows, null, 2));
     const mermaidCode = (0, diagramGenerator_1.generateMermaidDiagram)(workflows);
+    console.log("--- [Generated Mermaid Code Start] ---");
+    console.log(mermaidCode);
+    console.log("--- [Generated Mermaid Code End] ---");
     // 🖼️ Webview 생성
     const panel = vscode.window.createWebviewPanel('labnoteDiagram', 'Labnote Diagram', vscode.ViewColumn.Beside, {
         enableScripts: true,
@@ -100,6 +107,11 @@ async function showDiagramPanel() {
     <html lang="en">
     <head>
       <meta charset="UTF-8">
+      <meta http-equiv="Content-Security-Policy" content="
+        default-src 'none';
+        style-src 'unsafe-inline';
+        script-src https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js 'unsafe-inline';
+      ">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Labnote Workflow Diagram</title>
       <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
