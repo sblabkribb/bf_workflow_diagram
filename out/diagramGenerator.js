@@ -7,6 +7,7 @@ function generateMermaidDiagram(workflows) {
     workflows.forEach((wf, wfIdx) => {
         const wfId = `WF_${wfIdx}`;
         mermaid += `  subgraph ${wfId} ["${wf.name}"]\n`; // 각 워크플로우를 서브그래프로 정의
+        mermaid += '    direction LR\n'; // 서브그래프 내의 방향을 LR(Left to Right)로 설정
         let previousOpIdInCurrentWf = null; // 현재 워크플로우 내의 '이전 작업 ID'
         if (wf.ops.length === 0) {
             // 이 워크플로우에 작업(op)이 없는 경우, 플레이스홀더 노드 생성
@@ -41,9 +42,6 @@ function generateMermaidDiagram(workflows) {
         lastOpIdOfPreviousWf = previousOpIdInCurrentWf;
         mermaid += '  end\n\n';
     });
-    // 레이아웃 설정
-    mermaid += '  ranksep=0.8\n';
-    mermaid += '  nodesep=0.5\n';
     return mermaid;
 }
 exports.generateMermaidDiagram = generateMermaidDiagram;

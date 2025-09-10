@@ -5,6 +5,7 @@ export function generateMermaidDiagram(workflows: { name: string; ops: string[] 
   workflows.forEach((wf, wfIdx) => {
     const wfId = `WF_${wfIdx}`;
     mermaid += `  subgraph ${wfId} ["${wf.name}"]\n`; // 각 워크플로우를 서브그래프로 정의
+    mermaid += '    direction LR\n'; // 서브그래프 내의 방향을 LR(Left to Right)로 설정
     
     let previousOpIdInCurrentWf: string | null = null; // 현재 워크플로우 내의 '이전 작업 ID'
     
@@ -43,10 +44,6 @@ export function generateMermaidDiagram(workflows: { name: string; ops: string[] 
     lastOpIdOfPreviousWf = previousOpIdInCurrentWf;
     mermaid += '  end\n\n';
   });
-
-  // 레이아웃 설정
-  mermaid += '  ranksep=0.8\n';
-  mermaid += '  nodesep=0.5\n';
 
   return mermaid;
 }

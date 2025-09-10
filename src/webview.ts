@@ -57,13 +57,13 @@ export async function showDiagramPanel() {
   } else {
     // 🚀 실제 파싱 모드
     try {
-      const workflowPaths = parseWorkflowsFromReadme(readmePath);
-      workflows = workflowPaths.map(fullPath => {
+      const workflowPaths = await parseWorkflowsFromReadme(readmePath);
+      workflows = await Promise.all(workflowPaths.map(async (fullPath) => {
         const fileName = path.basename(fullPath, '.md');
         const displayName = fileName.split('_').slice(1).join(' '); // e.g., "001_Material_Preparation" → "Material Preparation"
-        const ops = parseUnitOperationsFromWorkflow(fullPath);
+        const ops = await parseUnitOperationsFromWorkflow(fullPath);
         return { name: displayName, ops };
-      });
+      }));
     } catch (err) {
       vscode.window.showErrorMessage(`Error parsing workflows: ${err}`);
       return;
@@ -90,6 +90,8 @@ export async function showDiagramPanel() {
     }
   );
 
+  const nonce = getNonce();
+
   panel.webview.html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -97,40 +99,41 @@ export async function showDiagramPanel() {
       <meta charset="UTF-8">
       <meta http-equiv="Content-Security-Policy" content="
         default-src 'none';
-        style-src 'unsafe-inline';
-        script-src https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js 'unsafe-inline';
+        style-src ${panel.webview.cspSource} 'unsafe-inline';
+        img-src ${panel.webview.cspSource} data: https:;
+        script-src 'nonce-${nonce}';
       ">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Labnote Workflow Diagram</title>
-      <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
       <style>
         body {
           font-family: -apple-system, BlinkMacSystemFont, sans-serif;
           padding: 20px;
-          background: #f9f9f9;
+          background-color: var(--vscode-editor-background);
+          color: var(--vscode-editor-foreground);
         }
         h1 {
-          color: #333;
-          border-bottom: 2px solid #007acc;
+          border-bottom: 2px solid var(--vscode-focusBorder);
           padding-bottom: 10px;
         }
-        #diagram {
-          background: white;
+        .mermaid {
+          background-color: var(--vscode-sideBar-background);
           padding: 20px;
           border-radius: 8px;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          border: 1px solid var(--vscode-sideBar-border);
           overflow: auto;
         }
       </style>
     </head>
     <body>
       <h1>🔬 Labnote Workflow Diagram</h1>
-      <div id="diagram" class="mermaid">
+      <div class="mermaid">
         ${mermaidCode}
       </div>
-      <script>
+      <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+      <script nonce="${nonce}">
         mermaid.initialize({
-          startOnLoad: true,
+          startOnLoad: false,
           theme: 'default',
           securityLevel: 'loose',
           flowchart: {
@@ -139,8 +142,18 @@ export async function showDiagramPanel() {
             curve: 'linear'
           }
         });
+        mermaid.run();
       </script>
     </body>
     </html>
   `;
+}
+
+function getNonce() {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
 }

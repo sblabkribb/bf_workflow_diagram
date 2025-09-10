@@ -1,22 +1,31 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 
-export function parseWorkflowsFromReadme(filePath: string): string[] {
+export async function parseWorkflowsFromReadme(filePath: string): Promise<string[]> {
   console.log(`[Parser] Starting to parse README: ${filePath}`);
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = await fs.readFile(filePath, 'utf8');
     const workflowStart = '<!-- WORKFLOW_LIST_START -->';
     const workflowEnd = '<!-- WORKFLOW_LIST_END -->';
     const startIndex = content.indexOf(workflowStart);
     const endIndex = content.indexOf(workflowEnd);
 
-    if (startIndex === -1 || endIndex === -1) {
-      console.warn('[Parser] Workflow markers not found in README.md');
-      return [];
+    let listContent = content; // 기본적으로 전체 콘텐츠를 사용
+
+    if (startIndex !== -1 && endIndex !== -1) {
+      // 마커가 존재하면, 해당 부분만 잘라내서 사용
+      console.log('[Parser] Workflow markers found. Parsing content between them.');
+      listContent = content.slice(startIndex + workflowStart.length, endIndex).trim();
+    } else {
+      console.warn('[Parser] Workflow markers not found. Parsing all links in the file as a fallback.');
     }
 
-    const list = content.slice(startIndex + workflowStart.length, endIndex).trim();
-    const links = [...list.matchAll(/\[.*?\]\((.*?)\)/g)];
+    const links = [...listContent.matchAll(/\[.*?\]\((.*?)\)/g)];
+
+    if (links.length === 0) {
+      console.warn('[Parser] No workflow links found.');
+      return [];
+    }
 
     return links.map(match => {
       const relativePath = match[1];
@@ -30,30 +39,29 @@ export function parseWorkflowsFromReadme(filePath: string): string[] {
   }
 }
 
-export function parseUnitOperationsFromWorkflow(filePath: string): string[] {
+export async function parseUnitOperationsFromWorkflow(filePath: string): Promise<string[]> {
   console.log(`[Parser] Parsing unit operations from: ${filePath}`);
-  if (!fs.existsSync(filePath)) {
-    console.warn(`[Parser] Workflow file not found: ${filePath}`);
-    return [];
-  }
-
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const start = '<!-- UNITOPERATION_LIST_START -->';
-    const end = '<!-- UNITOPERATION_LIST_END -->';
-    const startIndex = content.indexOf(start);
-    const endIndex = content.indexOf(end);
+    const content = await fs.readFile(filePath, 'utf8');
+    const startMarker = '<!-- UNITOPERATION_LIST_START -->';
+    const endMarker = '<!-- UNITOPERATION_LIST_END -->';
+    const startIndex = content.indexOf(startMarker);
+    const endIndex = content.indexOf(endMarker);
 
-    if (startIndex === -1 || endIndex === -1) {
-      console.warn(`[Parser] Unit operation markers not found in: ${filePath}`);
-      return [];
+    let listContent = content; // 기본적으로 전체 콘텐츠를 사용
+
+    if (startIndex !== -1 && endIndex !== -1) {
+      // 마커가 존재하면, 해당 부분만 잘라내서 사용
+      console.log('[Parser] Unit operation markers found. Parsing content between them.');
+      listContent = content.slice(startIndex + startMarker.length, endIndex).trim();
+    } else {
+      console.warn(`[Parser] Unit operation markers not found in ${path.basename(filePath)}. Parsing all list items in the file as a fallback.`);
     }
 
-    const list = content.slice(startIndex + start.length, endIndex).trim();
-    const lines = list.split('\n').map(line => line.trim());
+    const lines = listContent.split('\n').map(line => line.trim());
 
     const operations = lines
-      .filter(line => line.startsWith('['))
+      .filter(line => line.match(/^\s*-\s*\[/))
       .map(line => {
         const match = line.match(/\[(.*?)\](.*)/);
         return match ? `${match[1].trim()} ${match[2].trim()}` : '';
@@ -62,8 +70,12 @@ export function parseUnitOperationsFromWorkflow(filePath: string): string[] {
     
     console.log(`[Parser] Found ${operations.length} operations in ${filePath}`);
     return operations;
-  } catch(err) {
-    console.error(`[Parser] Error reading or parsing workflow file: ${filePath}`, err);
+  } catch(err: any) {
+    if (err.code === 'ENOENT') {
+      console.warn(`[Parser] Workflow file not found: ${filePath}`);
+    } else {
+      console.error(`[Parser] Error reading or parsing workflow file: ${filePath}`, err);
+    }
     return [];
   }
 }
