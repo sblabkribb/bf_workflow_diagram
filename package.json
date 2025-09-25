@@ -8,27 +8,28 @@
     "vscode": "^1.80.0"
   },
   "activationEvents": [
-    "onCommand:labnote.diagram.view"
+    "onCommand:bf-workflow-diagram.showDiagram"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "labnote.diagram.view",
-        "title": "Labnote: 현재 실험 다이어그램으로 보기"
+        "command": "bf-workflow-diagram.showDiagram",
+        "title": "LabNote: 워크플로우 다이어그램 보기"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "copy-assets": "cpx \"src/**/*.js\" out",
+    "compile": "npm run copy-assets && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
     "@types/node": "16.x",
+    "@types/vscode": "^1.80.0",
+    "cpx": "^1.5.0",
     "typescript": "~5.0.0"
   }
 }
-

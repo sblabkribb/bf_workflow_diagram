@@ -1,81 +1,96 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { Experiment, Workflow, UnitOperation } from './types';
 
-export async function parseWorkflowsFromReadme(filePath: string): Promise<string[]> {
-  console.log(`[Parser] Starting to parse README: ${filePath}`);
+async function parseYamlFrontMatter(content: string): Promise<{ [key: string]: any }> {
+  const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n/);
+  if (!match) return {};
+
+  const frontMatter = match[1];
+  const lines = frontMatter.split('\n');
+  const data: { [key: string]: any } = {};
+  lines.forEach(line => {
+    const parts = line.split(':');
+    if (parts.length >= 2) {
+      const key = parts[0].trim();
+      let value = parts.slice(1).join(':').trim();
+      // 값의 양 끝에 따옴표가 있으면 제거합니다.
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.substring(1, value.length - 1);
+      }
+      data[key] = value;
+    }
+  });
+  return data;
+}
+
+export async function parseWorkflow(workflowPath: string): Promise<Workflow> {
+  console.log(`[Parser] Parsing workflow: ${workflowPath}`);
   try {
-    const content = await fs.readFile(filePath, 'utf8');
-    const workflowStart = '<!-- WORKFLOW_LIST_START -->';
-    const workflowEnd = '<!-- WORKFLOW_LIST_END -->';
-    const startIndex = content.indexOf(workflowStart);
-    const endIndex = content.indexOf(workflowEnd);
+    const content = await fs.readFile(workflowPath, 'utf8');
+    const frontMatter = await parseYamlFrontMatter(content);
+    const title = frontMatter.title || path.basename(workflowPath, '.md');
 
-    let listContent = content; // 기본적으로 전체 콘텐츠를 사용
+    const unitOperations: UnitOperation[] = [];
+    const lines = content.split('\n');
+    // ### [ID Name] 형식을 찾기 위한 정규식.
+    // ID는 영문 대문자로 시작하고 숫자/대문자를 포함하는 단어 (e.g., WD070, USW030)
+    const opRegex = /^###\s*\[([A-Z]+[A-Z0-9]+)\s*([^\]]*)\]/;
 
-    if (startIndex !== -1 && endIndex !== -1) {
-      // 마커가 존재하면, 해당 부분만 잘라내서 사용
-      console.log('[Parser] Workflow markers found. Parsing content between them.');
-      listContent = content.slice(startIndex + workflowStart.length, endIndex).trim();
-    } else {
-      console.warn('[Parser] Workflow markers not found. Parsing all links in the file as a fallback.');
-    }
-
-    const links = [...listContent.matchAll(/\[.*?\]\((.*?)\)/g)];
-
-    if (links.length === 0) {
-      console.warn('[Parser] No workflow links found.');
-      return [];
-    }
-
-    return links.map(match => {
-      const relativePath = match[1];
-      const resolvedPath = path.resolve(path.dirname(filePath), relativePath);
-      console.log(`[Parser] Found workflow link: ${relativePath} -> Resolved to: ${resolvedPath}`);
-      return resolvedPath;
+    lines.forEach((line, index) => {
+      const match = line.match(opRegex);
+      if (match) {
+        unitOperations.push({
+          id: match[1],
+          name: match[2].trim(),
+          filePath: workflowPath,
+          line: index + 1,
+        });
+      }
     });
-  } catch (err) {
-    console.error(`[Parser] Error reading or parsing README file: ${filePath}`, err);
-    return [];
+
+    return {
+      title,
+      filePath: workflowPath,
+      unitOperations,
+    };
+  } catch (err: any) {
+    console.error(`[Parser] Error parsing workflow file: ${workflowPath}`, err);
+    throw new Error(`Failed to parse workflow file: ${path.basename(workflowPath)}`);
   }
 }
 
-export async function parseUnitOperationsFromWorkflow(filePath: string): Promise<string[]> {
-  console.log(`[Parser] Parsing unit operations from: ${filePath}`);
+export async function parseExperiment(readmePath: string): Promise<Experiment> {
+  console.log(`[Parser] Starting to parse experiment from README: ${readmePath}`);
   try {
-    const content = await fs.readFile(filePath, 'utf8');
-    const startMarker = '<!-- UNITOPERATION_LIST_START -->';
-    const endMarker = '<!-- UNITOPERATION_LIST_END -->';
-    const startIndex = content.indexOf(startMarker);
-    const endIndex = content.indexOf(endMarker);
+    const content = await fs.readFile(readmePath, 'utf8');
+    const frontMatter = await parseYamlFrontMatter(content);
+    const title = frontMatter.title || 'Experiment';
 
-    let listContent = content; // 기본적으로 전체 콘텐츠를 사용
+    const linkRegex = /\[.*?\]\((.*?\.md)\)/g;
+    const workflowLinks = [...content.matchAll(linkRegex)];
 
-    if (startIndex !== -1 && endIndex !== -1) {
-      // 마커가 존재하면, 해당 부분만 잘라내서 사용
-      console.log('[Parser] Unit operation markers found. Parsing content between them.');
-      listContent = content.slice(startIndex + startMarker.length, endIndex).trim();
-    } else {
-      console.warn(`[Parser] Unit operation markers not found in ${path.basename(filePath)}. Parsing all list items in the file as a fallback.`);
+    if (workflowLinks.length === 0) {
+      console.warn('[Parser] No workflow links found in README.');
+      return { title, workflows: [] };
     }
 
-    const lines = listContent.split('\n').map(line => line.trim());
+    const readmeDir = path.dirname(readmePath);
+    const workflowPromises = workflowLinks.map(match => {
+      const relativePath = match[1];
+      const fullPath = path.resolve(readmeDir, relativePath);
+      console.log(`[Parser] Found workflow link: ${relativePath} -> Resolved to: ${fullPath}`);
+      return parseWorkflow(fullPath);
+    });
 
-    const operations = lines
-      .filter(line => line.match(/^\s*-\s*\[/))
-      .map(line => {
-        const match = line.match(/\[(.*?)\](.*)/);
-        return match ? `${match[1].trim()} ${match[2].trim()}` : '';
-      })
-      .filter(Boolean);
-    
-    console.log(`[Parser] Found ${operations.length} operations in ${filePath}`);
-    return operations;
-  } catch(err: any) {
-    if (err.code === 'ENOENT') {
-      console.warn(`[Parser] Workflow file not found: ${filePath}`);
-    } else {
-      console.error(`[Parser] Error reading or parsing workflow file: ${filePath}`, err);
-    }
-    return [];
+    const workflows = await Promise.all(workflowPromises);
+
+    return {
+      title,
+      workflows,
+    };
+  } catch (err: any) {
+    console.error(`[Parser] Error parsing experiment from README: ${readmePath}`, err);
+    throw new Error('Failed to parse experiment from README.md');
   }
 }

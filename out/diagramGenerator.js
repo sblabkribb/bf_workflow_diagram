@@ -1,48 +1,66 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateMermaidDiagram = void 0;
-function generateMermaidDiagram(workflows) {
-    let mermaid = 'graph TD\n'; // Top-down 그래프
-    let lastOpIdOfPreviousWf = null; // 이전 워크플로우의 '마지막 작업 ID'를 추적
-    workflows.forEach((wf, wfIdx) => {
-        const wfId = `WF_${wfIdx}`;
-        mermaid += `  subgraph ${wfId} ["${wf.name}"]\n`; // 각 워크플로우를 서브그래프로 정의
-        mermaid += '    direction LR\n'; // 서브그래프 내의 방향을 LR(Left to Right)로 설정
-        let previousOpIdInCurrentWf = null; // 현재 워크플로우 내의 '이전 작업 ID'
-        if (wf.ops.length === 0) {
-            // 이 워크플로우에 작업(op)이 없는 경우, 플레이스홀더 노드 생성
-            const placeholderId = `OP_${wfIdx}_placeholder`;
-            mermaid += `    ${placeholderId}["(작업 없음)"]\n`;
-            previousOpIdInCurrentWf = placeholderId;
-            // 작업이 없더라도, 이전 워크플로우와 이 플레이스홀더를 연결
-            if (lastOpIdOfPreviousWf) {
-                mermaid += `  ${lastOpIdOfPreviousWf} --> ${placeholderId}\n`;
-            }
+exports.generateDiagramHtml = void 0;
+/**
+ * Mermaid.js 노드 텍스트에 사용될 문자열을 안전하게 이스케이프 처리합니다.
+ * @param text 이스케이프할 원본 텍스트
+ * @returns 이스케이프 처리된 텍스트
+ */
+function sanitizeForMermaid(text) {
+    // 큰따옴표를 HTML 엔티티로 변환하여 Mermaid 파싱 오류를 방지합니다.
+    return text.replace(/"/g, '#quot;');
+}
+function generateDiagramHtml(experiment) {
+    let mermaidCode = 'graph TD\n';
+    mermaidCode += '  classDef default fill:#222,stroke:#fff,stroke-width:2px,color:#fff;\n';
+    mermaidCode += '  classDef workflow fill:#003,stroke:#0af,stroke-width:2px,color:#fff;\n';
+    let lastNodeIdOfPreviousWf = null;
+    experiment.workflows.forEach((workflow, wfIndex) => {
+        const workflowNodeId = `wf${wfIndex}`;
+        const safeDisplayTitle = sanitizeForMermaid(workflow.title);
+        // Mermaid v10+에서는 subgraph ID와 제목을 모두 따옴표로 묶어야 합니다.
+        mermaidCode += `  subgraph "${workflowNodeId}[${safeDisplayTitle}]"\n`;
+        mermaidCode += `    direction LR\n`;
+        const safeFilePath = workflow.filePath.replace(/\\/g, '\\\\');
+        let firstNodeIdInCurrentWf = null;
+        let lastNodeIdInCurrentWf = null;
+        if (workflow.unitOperations.length === 0) {
+            const placeholderId = `${workflowNodeId}_placeholder`;
+            const navData = JSON.stringify({ filePath: safeFilePath, line: 1 });
+            // Base64 인코딩을 사용하여 특수문자 문제를 회피합니다.
+            const safeNavData = Buffer.from(navData).toString('base64');
+            mermaidCode += `    ${placeholderId}["(No operations)"]:::default\n`;
+            mermaidCode += `    click ${placeholderId} call navigateTo('${safeNavData}')\n`;
+            firstNodeIdInCurrentWf = placeholderId;
+            lastNodeIdInCurrentWf = placeholderId;
         }
         else {
-            // 작업 목록 순회
-            wf.ops.forEach((op, opIdx) => {
-                const opId = `OP_${wfIdx}_${opIdx}`;
-                mermaid += `    ${opId}["${op}"]\n`; // 작업 노드 정의
-                if (opIdx === 0) {
-                    // 이 노드가 워크플로우의 '첫 번째' 작업인 경우
-                    if (lastOpIdOfPreviousWf) {
-                        // '이전 워크플로우의 마지막 작업'과 연결
-                        mermaid += `  ${lastOpIdOfPreviousWf} --> ${opId}\n`;
-                    }
+            workflow.unitOperations.forEach((op, opIndex) => {
+                const opId = `${workflowNodeId}_op${opIndex}`;
+                const opSafeFilePath = op.filePath.replace(/\\/g, '\\\\');
+                const navData = JSON.stringify({ filePath: opSafeFilePath, line: op.line });
+                // Base64 인코딩을 사용하여 특수문자 문제를 회피합니다.
+                const safeNavData = Buffer.from(navData).toString('base64');
+                mermaidCode += `    ${opId}["${sanitizeForMermaid(op.id)}<br/>${sanitizeForMermaid(op.name)}"]\n`;
+                mermaidCode += `    click ${opId} call navigateTo('${safeNavData}')\n`;
+                if (opIndex === 0) {
+                    firstNodeIdInCurrentWf = opId;
                 }
-                else {
-                    // 첫 번째 작업이 아닌 경우, '현재 워크플로우의 이전 작업'과 연결
-                    mermaid += `    ${previousOpIdInCurrentWf} --> ${opId}\n`;
+                if (opIndex === workflow.unitOperations.length - 1) {
+                    lastNodeIdInCurrentWf = opId;
                 }
-                previousOpIdInCurrentWf = opId; // 다음 순회를 위해 현재 작업 ID를 '이전 ID'로 업데이트
             });
+            for (let i = 0; i < workflow.unitOperations.length - 1; i++) {
+                mermaidCode += `    ${workflowNodeId}_op${i} --> ${workflowNodeId}_op${i + 1}\n`;
+            }
         }
-        // 현재 워크플로우의 '마지막 작업 ID'를 전체 추적 변수에 저장 (다음 워크플로우 연결용)
-        lastOpIdOfPreviousWf = previousOpIdInCurrentWf;
-        mermaid += '  end\n\n';
+        mermaidCode += `  end\n`;
+        if (lastNodeIdOfPreviousWf && firstNodeIdInCurrentWf) {
+            mermaidCode += `  ${lastNodeIdOfPreviousWf} --> ${firstNodeIdInCurrentWf}\n`;
+        }
+        lastNodeIdOfPreviousWf = lastNodeIdInCurrentWf;
     });
-    return mermaid;
+    return `<div class="mermaid">${mermaidCode}</div>`;
 }
-exports.generateMermaidDiagram = generateMermaidDiagram;
+exports.generateDiagramHtml = generateDiagramHtml;
 //# sourceMappingURL=diagramGenerator.js.map
