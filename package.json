@@ -2,8 +2,12 @@
   "name": "labnote-diagram-viewer",
   "displayName": "Labnote Diagram Viewer",
   "description": "Visualize labnote workflows as diagrams using Mermaid.js",
-  "version": "0.0.1",
-  "publisher": "YourName",
+  "version": "0.0.2",
+  "publisher": "ParkYaeSeong",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sblabkribb/bf_workflow_diagram.git"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
