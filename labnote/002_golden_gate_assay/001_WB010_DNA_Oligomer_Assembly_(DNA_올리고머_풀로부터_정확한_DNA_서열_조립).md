@@ -39,3 +39,36 @@ last_updated_date: '2025-09-25'
 #### Results & Discussions
 - (Any results and discussions. Link file path if needed)
 
+
+
+### [USW260 Hyperparameter Tuning new]
+
+- **Description**: Efficiently exploring the search space using Bayesian optimization techniques. This software supports the optimization of machine learning models.
+
+#### Meta
+- Experimenter: 
+- Start_date: '2025-09-26 17:11'
+- End_date: ''
+
+#### Input
+- (samples from the previous step)
+
+#### Reagent
+- (e.g. enzyme, buffer, etc.)
+
+#### Consumables
+- (e.g. filter, well-plate, etc.)
+
+#### Equipment
+- (e.g. centrifuge, spectrophotometer, etc.)
+
+#### Method
+- (method used in this step)
+
+#### Output
+- (samples to the next step)
+
+#### Results & Discussions
+- (Any results and discussions. Link file path if needed)
+
+

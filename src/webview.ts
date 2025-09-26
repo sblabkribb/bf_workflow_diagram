@@ -5,7 +5,6 @@ import { parseExperiment } from './parser';
 import { generateDiagramHtml } from './diagramGenerator';
 import { Experiment } from './types';
 
-// 함수 인자로 context 전체를 받도록 수정합니다.
 export function createDiagramPanel(context: vscode.ExtensionContext): vscode.WebviewPanel | undefined {
   const extensionUri = context.extensionUri;
   console.log('Function "createDiagramPanel" started.');
@@ -39,7 +38,6 @@ export function createDiagramPanel(context: vscode.ExtensionContext): vscode.Web
     try {
       const experimentReadmePaths = findExperimentReadmes(labnoteRoot);
       if (experimentReadmePaths.length === 0) {
-        vscode.window.showInformationMessage('"labnote" 폴더 내에서 유효한 실험(README.md 포함)을 찾을 수 없습니다.');
         panel.webview.html = getWebviewContent(panel.webview, extensionUri, [], "No Experiments Found");
         return;
       }
@@ -69,11 +67,8 @@ export function createDiagramPanel(context: vscode.ExtensionContext): vscode.Web
   watcher.onDidDelete(onFileChange);
 
   panel.onDidDispose(
-    () => {
-      watcher.dispose();
-    },
+    () => { watcher.dispose(); },
     null,
-    // 전달받은 context를 사용하여 구독을 관리합니다.
     context.subscriptions
   );
 
@@ -105,7 +100,6 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, ex
           padding: 20px;
           background-color: var(--vscode-editor-background);
           color: var(--vscode-editor-foreground);
-          overflow: auto;
         }
         h1 {
           display: flex;
@@ -125,36 +119,50 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, ex
         #export-button:hover {
           background-color: var(--vscode-button-hoverBackground);
         }
-        .diagram-grid-container {
-          display: inline-flex;
+        #diagram-container {
+          position: relative;
+          width: 100%;
+          min-height: 800px; /* Ensure container has height for absolute positioning */
+        }
+        .workflow-group {
+            position: absolute; /* Controlled by JS */
+        }
+        .dbtl-cell, .workflow-title-cell, .unit-operations-cell, .dbtl-cycle-label {
+            position: absolute; /* Controlled by JS */
+        }
+        .dbtl-cell {
+          display: flex;
           flex-direction: column;
-          align-items: flex-start;
-          gap: 10px;
+          gap: 4px;
         }
-        .experiment-header {
-          width: 100%;
-          text-align: center;
-          font-size: 1.3em;
-          font-weight: bold;
-          padding: 10px;
-          color: #a6f;
-          margin-top: 20px;
+        .dbtl-btn {
+          border: 1px solid #ccc;
+          background-color: #555;
+          color: white;
+          width: 25px;
+          height: 25px;
+          cursor: pointer;
+          border-radius: 4px;
+          font-size: 14px;
         }
-        .workflow-row {
-          display: grid;
-          grid-template-columns: 250px auto;
-          align-items: center;
-          gap: 20px;
-          width: 100%;
+        .dbtl-btn.selected {
+          background-color: #007acc;
+          border-color: #007acc;
+        }
+        .dbtl-cycle-label {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ccc;
         }
         .workflow-title-cell {
-          background-color: #f0f0f020;
-          border: 1px solid #ccc;
+          background-color: #444;
+          border: 1px solid #777;
           padding: 10px 15px;
           border-radius: 6px;
           text-align: center;
           cursor: pointer;
-          justify-self: start;
+          min-width: 250px;
+          box-sizing: border-box;
         }
         .unit-operations-cell {
           display: flex;
@@ -162,8 +170,8 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, ex
           align-items: center;
         }
         .unit-operation-node {
-          background-color: #333;
-          border: 1px solid #888;
+          background-color: #003;
+          border: 1px solid #0af;
           color: #fff;
           padding: 8px;
           border-radius: 6px;
@@ -172,21 +180,10 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, ex
           display: flex;
           flex-direction: column;
           min-width: 150px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+          margin-right: 20px; /* Gap between operations */
         }
-        .unit-operation-node .op-id {
-          font-weight: bold;
-          margin-bottom: 5px;
-        }
-        .unit-operation-node:hover, .workflow-title-cell:hover {
-            border-color: yellow;
-        }
-        .arrow.right::after {
-            content: '→';
-            font-size: 24px;
-            color: #888;
-            margin: 0 10px;
-        }
+        .unit-operation-node .op-id { font-weight: bold; margin-bottom: 5px; }
+        .unit-operation-node:hover, .workflow-title-cell:hover { border-color: yellow; }
       </style>
     </head>
     <body>
@@ -194,7 +191,10 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, ex
         <span>📁 ${title}</span>
         <button id="export-button">Export to PNG</button>
       </h1>
-      ${diagramHtml}
+      <div style="position: relative; width: 100%;">
+        ${diagramHtml}
+        <svg id="arrow-svg-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1;"></svg>
+      </div>
       <script nonce="${nonce}" src="${html2canvasUri}"></script>
       <script nonce="${nonce}" src="${scriptUri}"></script>
     </body>
@@ -214,17 +214,13 @@ function getNonce() {
 function findLabnoteRoot(currentPath: string): string | null {
   let dir = path.dirname(currentPath);
   const root = path.parse(dir).root; 
-
   while (dir !== root) {
-    if (path.basename(dir) === 'labnote') {
-      return dir;
-    }
+    if (path.basename(dir) === 'labnote') return dir;
     dir = path.dirname(dir);
   }
   if (path.basename(currentPath) === 'labnote' && fs.statSync(currentPath).isDirectory()) {
     return currentPath;
   }
-  
   return null;
 }
 
