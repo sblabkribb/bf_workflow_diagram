@@ -38,7 +38,6 @@ async function parseYamlFrontMatter(content) {
         if (parts.length >= 2) {
             const key = parts[0].trim();
             let value = parts.slice(1).join(':').trim();
-            // 값의 양 끝에 따옴표가 있으면 제거합니다.
             if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
                 value = value.substring(1, value.length - 1);
             }
@@ -55,9 +54,9 @@ async function parseWorkflow(workflowPath) {
         const title = frontMatter.title || path.basename(workflowPath, '.md');
         const unitOperations = [];
         const lines = content.split('\n');
-        // ### [ID Name] 형식을 찾기 위한 정규식.
-        // ID는 영문 대문자로 시작하고 숫자/대문자를 포함하는 단어 (e.g., WD070, USW030)
-        const opRegex = /^###\s*\[([A-Z]+[A-Z0-9]+)\s*([^\]]*)\]/;
+        // ### [ID Name] 형식을 더 명확하게 파싱하기 위한 최종 정규식
+        // ID(영문/숫자)와 Name(모든 문자) 사이에 반드시 하나 이상의 공백이 오도록 강제합니다.
+        const opRegex = /^###\s*\[([A-Z0-9]+)\s+([^\]]+)\]/;
         lines.forEach((line, index) => {
             const match = line.match(opRegex);
             if (match) {
