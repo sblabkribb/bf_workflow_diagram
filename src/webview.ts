@@ -122,7 +122,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, ex
         #diagram-container {
           position: relative;
           width: 100%;
-          min-height: 800px; /* Ensure container has height for absolute positioning */
+          min-height: 800px;
         }
         .workflow-group {
             position: absolute; /* Controlled by JS */
@@ -191,7 +191,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, ex
         <span>📁 ${title}</span>
         <button id="export-button">Export to PNG</button>
       </h1>
-      <div style="position: relative; width: 100%;">
+      <div id="capture-area" style="position: relative; width: 100%;">
         ${diagramHtml}
         <svg id="arrow-svg-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1;"></svg>
       </div>
