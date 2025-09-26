@@ -29,11 +29,10 @@ const fs = __importStar(require("fs"));
 const webview_1 = require("./webview");
 function activate(context) {
     console.log('Extension "labnote-diagram-viewer" is now activating...');
-    // showDiagramPanel 함수를 한번 더 감싸서, 명령어 호출 자체를 로깅합니다.
     const disposable = vscode.commands.registerCommand('bf-workflow-diagram.showDiagram', () => {
         console.log('Command "bf-workflow-diagram.showDiagram" was triggered!');
-        const panel = (0, webview_1.createDiagramPanel)(context.extensionUri);
-        // 패널 생성이 실패한 경우 (예: 유효한 파일이 아님) 더 이상 진행하지 않음
+        // createDiagramPanel 함수에 context 객체 전체를 전달하도록 수정합니다.
+        const panel = (0, webview_1.createDiagramPanel)(context);
         if (!panel) {
             return;
         }
@@ -41,24 +40,38 @@ function activate(context) {
         panel.webview.onDidReceiveMessage(async (message) => {
             if (message.command === 'navigateTo') {
                 const { filePath, line } = message;
-                const uri = vscode.Uri.file(filePath);
-                const document = await vscode.workspace.openTextDocument(uri);
-                const position = new vscode.Position(line - 1, 0);
-                await vscode.window.showTextDocument(document, {
-                    selection: new vscode.Selection(position, position),
-                });
+                try {
+                    const uri = vscode.Uri.file(filePath);
+                    const document = await vscode.workspace.openTextDocument(uri);
+                    const position = new vscode.Position(line - 1, 0);
+                    await vscode.window.showTextDocument(document, {
+                        selection: new vscode.Selection(position, position),
+                    });
+                }
+                catch (e) {
+                    console.error(e);
+                    vscode.window.showErrorMessage(`Could not open file: ${filePath}`);
+                }
             }
-            else if (message.command === 'exportToSvg') {
-                const { svgContent } = message;
+            else if (message.command === 'exportToPng') {
+                const { data } = message; // Base64 data URL
                 const uri = await vscode.window.showSaveDialog({
                     filters: {
-                        'SVG Images': ['svg']
+                        'PNG Images': ['png']
                     },
-                    defaultUri: vscode.Uri.file('workflow-diagram.svg')
+                    defaultUri: vscode.Uri.file('workflow-diagram.png')
                 });
                 if (uri) {
-                    fs.writeFileSync(uri.fsPath, svgContent);
-                    vscode.window.showInformationMessage(`Diagram exported to ${uri.fsPath}`);
+                    // "data:image/png;base64," 접두사를 제거하여 순수 Base64 데이터만 남깁니다.
+                    const base64Data = data.replace(/^data:image\/png;base64,/, "");
+                    try {
+                        fs.writeFileSync(uri.fsPath, base64Data, 'base64');
+                        vscode.window.showInformationMessage(`Diagram exported to ${uri.fsPath}`);
+                    }
+                    catch (err) {
+                        console.error('Failed to save PNG:', err);
+                        vscode.window.showErrorMessage('Failed to save diagram file.');
+                    }
                 }
             }
         }, undefined, context.subscriptions);

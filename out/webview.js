@@ -29,12 +29,13 @@ const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const parser_1 = require("./parser");
 const diagramGenerator_1 = require("./diagramGenerator");
-function createDiagramPanel(extensionUri) {
-    // 함수가 시작되었는지 확인하는 최우선 로그
+// 함수 인자로 context 전체를 받도록 수정합니다.
+function createDiagramPanel(context) {
+    const extensionUri = context.extensionUri;
     console.log('Function "createDiagramPanel" started.');
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        console.error('Execution stopped: No active editor found.'); // 조기 종료 원인 로깅
+        console.error('Execution stopped: No active editor found.');
         vscode.window.showErrorMessage('다이어그램을 생성하려면 먼저 파일을 열어주세요.');
         return;
     }
@@ -44,13 +45,11 @@ function createDiagramPanel(extensionUri) {
         vscode.window.showErrorMessage('"labnote" 폴더의 하위 파일을 열어주세요.');
         return;
     }
-    // 🖼️ Webview 생성
     const panel = vscode.window.createWebviewPanel('labnoteDiagram', 'Labnote Workflow Diagram', vscode.ViewColumn.Beside, {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'out')]
     });
-    // 웹뷰 콘텐츠를 업데이트하는 함수
     const updateWebview = async () => {
         try {
             const experimentReadmePaths = findExperimentReadmes(labnoteRoot);
@@ -68,10 +67,8 @@ function createDiagramPanel(extensionUri) {
             vscode.window.showErrorMessage(`다이어그램 업데이트 중 오류 발생: ${err.message}`);
         }
     };
-    // 초기 로드
     updateWebview();
     panel.reveal(vscode.ViewColumn.Beside);
-    // 파일 변경 감지를 위한 Watcher 설정
     const pattern = new vscode.RelativePattern(labnoteRoot, '**/*.md');
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
     const onFileChange = (uri) => {
@@ -81,12 +78,11 @@ function createDiagramPanel(extensionUri) {
     watcher.onDidChange(onFileChange);
     watcher.onDidCreate(onFileChange);
     watcher.onDidDelete(onFileChange);
-    // 패널이 닫힐 때 watcher도 정리
     panel.onDidDispose(() => {
         watcher.dispose();
-        panel.dispose();
-    }, null, [] // context.subscriptions에 추가하지 않고 패널 자체의 disposables로 관리
-    );
+    }, null, 
+    // 전달받은 context를 사용하여 구독을 관리합니다.
+    context.subscriptions);
     return panel;
 }
 exports.createDiagramPanel = createDiagramPanel;
@@ -94,12 +90,18 @@ function getWebviewContent(webview, extensionUri, experiments, title) {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'main.js'));
     const nonce = getNonce();
     const diagramHtml = (0, diagramGenerator_1.generateDiagramHtml)(experiments);
+    const html2canvasUri = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
     return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data: https:; script-src 'nonce-${nonce}';">
+      <meta http-equiv="Content-Security-Policy" content="
+        default-src 'none'; 
+        style-src ${webview.cspSource} 'unsafe-inline'; 
+        img-src ${webview.cspSource} data: https:; 
+        script-src 'nonce-${nonce}' 'unsafe-eval' https://cdnjs.cloudflare.com;
+      ">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${title}</title>
       <style>
@@ -128,20 +130,77 @@ function getWebviewContent(webview, extensionUri, experiments, title) {
         #export-button:hover {
           background-color: var(--vscode-button-hoverBackground);
         }
-        .mermaid {
-          background-color: var(--vscode-editor-background);
-          overflow: auto;
+        .diagram-grid-container {
+          display: inline-flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .experiment-header {
+          width: 100%;
           text-align: center;
+          font-size: 1.3em;
+          font-weight: bold;
+          padding: 10px;
+          color: #a6f;
+          margin-top: 20px;
+        }
+        .workflow-row {
+          display: grid;
+          grid-template-columns: 250px auto;
+          align-items: center;
+          gap: 20px;
+          width: 100%;
+        }
+        .workflow-title-cell {
+          background-color: #f0f0f020;
+          border: 1px solid #ccc;
+          padding: 10px 15px;
+          border-radius: 6px;
+          text-align: center;
+          cursor: pointer;
+          justify-self: start;
+        }
+        .unit-operations-cell {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+        }
+        .unit-operation-node {
+          background-color: #333;
+          border: 1px solid #888;
+          color: #fff;
+          padding: 8px;
+          border-radius: 6px;
+          text-align: center;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          min-width: 150px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .unit-operation-node .op-id {
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        .unit-operation-node:hover, .workflow-title-cell:hover {
+            border-color: yellow;
+        }
+        .arrow.right::after {
+            content: '→';
+            font-size: 24px;
+            color: #888;
+            margin: 0 10px;
         }
       </style>
     </head>
     <body>
       <h1>
         <span>📁 ${title}</span>
-        <button id="export-button">Export to SVG</button>
+        <button id="export-button">Export to PNG</button>
       </h1>
       ${diagramHtml}
-      <script nonce="${nonce}" src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+      <script nonce="${nonce}" src="${html2canvasUri}"></script>
       <script nonce="${nonce}" src="${scriptUri}"></script>
     </body>
     </html>
@@ -155,27 +214,20 @@ function getNonce() {
     }
     return text;
 }
-/**
- * 현재 경로에서 시작하여 상위로 이동하며 'labnote' 폴더를 찾습니다.
- * @param currentPath 현재 파일의 절대 경로
- * @returns 'labnote' 폴더의 절대 경로 또는 null
- */
 function findLabnoteRoot(currentPath) {
     let dir = path.dirname(currentPath);
-    const root = path.parse(dir).root; // 시스템의 루트 디렉터리 (e.g., 'C:\' or '/')
+    const root = path.parse(dir).root;
     while (dir !== root) {
         if (path.basename(dir) === 'labnote') {
             return dir;
         }
         dir = path.dirname(dir);
     }
+    if (path.basename(currentPath) === 'labnote' && fs.statSync(currentPath).isDirectory()) {
+        return currentPath;
+    }
     return null;
 }
-/**
- * 주어진 'labnote' 폴더 경로 하위에서 README.md를 포함하는 모든 실험 폴더를 찾습니다.
- * @param labnoteRoot 'labnote' 폴더의 절대 경로
- * @returns 각 실험의 README.md 파일 절대 경로 배열
- */
 function findExperimentReadmes(labnoteRoot) {
     const entries = fs.readdirSync(labnoteRoot, { withFileTypes: true });
     const experimentReadmePaths = [];

@@ -2,56 +2,58 @@
 (function () {
   const vscode = acquireVsCodeApi();
 
+  /**
+   * Base64로 인코딩된 데이터를 UTF-8 문자열로 안전하게 디코딩하여 파일로 이동하는 함수
+   * @param {string} base64Data 
+   */
+  function navigateTo(base64Data) {
+    try {
+      // atob로 디코딩 시 발생하는 멀티바이트 문자 깨짐 현상을 방지합니다.
+      const decodedUtf8String = decodeURIComponent(atob(base64Data).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+
+      const navData = JSON.parse(decodedUtf8String);
+      vscode.postMessage({ command: 'navigateTo', ...navData });
+    } catch (e) {
+      console.error('Failed to parse navigation data:', e, "Input:", base64Data);
+    }
+  }
+
   // DOM이 로드된 후 이벤트 리스너 설정
   document.addEventListener('DOMContentLoaded', () => {
+    // 모든 노드에 클릭 이벤트 리스너 추가
+    const clickableNodes = document.querySelectorAll('[data-nav]');
+    clickableNodes.forEach(node => {
+      node.addEventListener('click', () => {
+        const navData = node.getAttribute('data-nav');
+        if (navData) {
+          navigateTo(navData);
+        }
+      });
+    });
+
+    // PNG 내보내기 버튼 설정
     const exportButton = document.getElementById('export-button');
     if (exportButton) {
       exportButton.addEventListener('click', () => {
-        console.log('Export button clicked');
-        const svgElement = document.querySelector('.mermaid > svg');
-        if (svgElement) {
-          const style = document.createElement('style');
-          style.textContent = `
-            svg { background-color: #1e1e1e; color: #d4d4d4; }
-            .node rect, .node circle, .node polygon, .node ellipse { fill: #222 !important; stroke: #fff !important; stroke-width: 2px !important; }
-            .node .label { color: #fff !important; } 
-            .edgePath path { stroke: #fff !important; } 
-            .arrowhead { fill: #fff !important; }
-          `;
-          svgElement.prepend(style);
-          vscode.postMessage({ command: 'exportToSvg', svgContent: svgElement.outerHTML });
-          // 스타일 노드를 다시 제거하여 웹뷰의 원래 스타일을 복원합니다.
-          svgElement.removeChild(style);
+        const diagramContainer = document.getElementById('diagram-container');
+        if (diagramContainer && typeof html2canvas !== 'undefined') {
+          html2canvas(diagramContainer, { 
+            backgroundColor: '#1e1e1e', // VS Code 다크 테마 배경색과 일치
+            useCORS: true 
+          }).then(canvas => {
+            const pngData = canvas.toDataURL('image/png');
+            vscode.postMessage({ command: 'exportToPng', data: pngData });
+          }).catch(err => {
+            console.error('html2canvas failed:', err);
+            vscode.window.showErrorMessage('Diagram to PNG conversion failed.');
+          });
+        } else {
+            console.error('Diagram container or html2canvas library not found.');
         }
       });
-    }
-
-    // Mermaid 렌더링
-    try {
-      const isDark = document.body.classList.contains('vscode-dark');
-      const theme = isDark ? 'dark' : 'default';
-
-      mermaid.initialize({ startOnLoad: false, theme: theme });
-
-      const mermaidContainer = document.querySelector('.mermaid');
-      if (mermaidContainer) {
-        console.log("--- Mermaid Code to Render ---", mermaidContainer.textContent);
-        mermaid.run({ nodes: [mermaidContainer] });
-      }
-    } catch (e) {
-      console.error("Mermaid rendering failed:", e);
-      const container = document.querySelector('.mermaid');
-      if (container) {
-        container.innerHTML = '<h2>Error Rendering Diagram</h2><p>Please check the developer console (Help > Toggle Developer Tools) for more details.</p><pre>' + e.message + '</pre>';
-      }
     }
   });
 }());
 
-// Base64로 인코딩된 데이터를 디코딩하여 파일로 이동하는 함수 (전역 스코프에 정의)
-function navigateTo(base64Data) {
-  const vscode = acquireVsCodeApi();
-  const decodedString = atob(base64Data);
-  const navData = JSON.parse(decodedString);
-  vscode.postMessage({ command: 'navigateTo', ...navData });
-}
