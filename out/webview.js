@@ -148,6 +148,8 @@ function getWebviewContent(webview, extensionUri, experiments, title) {
           cursor: pointer;
           min-width: 250px;
           box-sizing: border-box;
+          max-width: 400px; /* 제목이 너무 길어지는 것을 방지 */
+          word-wrap: break-word; /* 긴 단어가 있을 경우 줄바꿈 처리 */
         }
         .workflow-title-cell[data-dbtl="D"] { background-color: #003366; } /* Design - Blue */
         .workflow-title-cell[data-dbtl="B"] { background-color: #006633; } /* Build - Green */

@@ -121,7 +121,7 @@
   function layoutAndDraw() {
     const PADDING = 20;
     const DBTL_LABEL_WIDTH = 40;
-    const WORKFLOW_CELL_WIDTH = 270;
+    const HORIZONTAL_GAP_AFTER_TITLE = 20; // 제목과 유닛 오퍼레이션 사이의 간격
     const VERTICAL_GAP = 40;
     let currentY = PADDING;
 
@@ -137,6 +137,7 @@
       const opsCell = document.getElementById(`ops-cell-${wf.index}`);
       
       const titleHeight = titleCell.offsetHeight;
+      const titleWidth = titleCell.offsetWidth;
       const opsHeight = opsCell.offsetHeight;
       const rowHeight = Math.max(titleHeight, opsHeight);
       
@@ -145,7 +146,7 @@
       titleCell.style.top = `${currentY}px`;
       titleCell.style.left = `${leftPos}px`;
       
-      const opsCellX = leftPos + WORKFLOW_CELL_WIDTH;
+      const opsCellX = leftPos + titleWidth + HORIZONTAL_GAP_AFTER_TITLE;
       const opsCellY = currentY + (rowHeight / 2) - (opsHeight / 2);
       opsCell.style.top = `${opsCellY}px`;
       opsCell.style.left = `${opsCellX}px`;
