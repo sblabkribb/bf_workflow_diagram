@@ -29,6 +29,13 @@ export async function parseWorkflow(workflowPath: string): Promise<Workflow> {
     const content = await fs.readFile(workflowPath, 'utf8');
     const frontMatter = await parseYamlFrontMatter(content);
     const title = frontMatter.title || path.basename(workflowPath, '.md');
+    
+    let dbtl: 'D' | 'B' | 'T' | 'L' | undefined;
+    const upperTitle = title.toUpperCase();
+    if (upperTitle.includes('WD')) dbtl = 'D';
+    else if (upperTitle.includes('WB')) dbtl = 'B';
+    else if (upperTitle.includes('WT')) dbtl = 'T';
+    else if (upperTitle.includes('WL')) dbtl = 'L';
 
     const unitOperations: UnitOperation[] = [];
     const lines = content.split('\n');
@@ -51,6 +58,7 @@ export async function parseWorkflow(workflowPath: string): Promise<Workflow> {
     return {
       title,
       filePath: workflowPath,
+      dbtl,
       unitOperations,
     };
   } catch (err: any) {

@@ -52,6 +52,16 @@ async function parseWorkflow(workflowPath) {
         const content = await fs.readFile(workflowPath, 'utf8');
         const frontMatter = await parseYamlFrontMatter(content);
         const title = frontMatter.title || path.basename(workflowPath, '.md');
+        let dbtl;
+        const upperTitle = title.toUpperCase();
+        if (upperTitle.includes('WD'))
+            dbtl = 'D';
+        else if (upperTitle.includes('WB'))
+            dbtl = 'B';
+        else if (upperTitle.includes('WT'))
+            dbtl = 'T';
+        else if (upperTitle.includes('WL'))
+            dbtl = 'L';
         const unitOperations = [];
         const lines = content.split('\n');
         // ### [ID Name] 형식을 더 명확하게 파싱하기 위한 최종 정규식
@@ -71,6 +81,7 @@ async function parseWorkflow(workflowPath) {
         return {
             title,
             filePath: workflowPath,
+            dbtl,
             unitOperations,
         };
     }

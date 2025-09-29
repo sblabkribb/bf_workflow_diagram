@@ -131,27 +131,8 @@ function getWebviewContent(webview, extensionUri, experiments, title) {
         .workflow-group {
             position: absolute; /* Controlled by JS */
         }
-        .dbtl-cell, .workflow-title-cell, .unit-operations-cell, .dbtl-cycle-label {
+        .workflow-title-cell, .unit-operations-cell, .dbtl-cycle-label {
             position: absolute; /* Controlled by JS */
-        }
-        .dbtl-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .dbtl-btn {
-          border: 1px solid #ccc;
-          background-color: #555;
-          color: white;
-          width: 25px;
-          height: 25px;
-          cursor: pointer;
-          border-radius: 4px;
-          font-size: 14px;
-        }
-        .dbtl-btn.selected {
-          background-color: #007acc;
-          border-color: #007acc;
         }
         .dbtl-cycle-label {
             font-size: 24px;
@@ -159,7 +140,7 @@ function getWebviewContent(webview, extensionUri, experiments, title) {
             color: #ccc;
         }
         .workflow-title-cell {
-          background-color: #444;
+          background-color: var(--vscode-sideBar-background, #333);
           border: 1px solid #777;
           padding: 10px 15px;
           border-radius: 6px;
@@ -167,6 +148,18 @@ function getWebviewContent(webview, extensionUri, experiments, title) {
           cursor: pointer;
           min-width: 250px;
           box-sizing: border-box;
+        }
+        .workflow-title-cell[data-dbtl="D"] { background-color: #003366; } /* Design - Blue */
+        .workflow-title-cell[data-dbtl="B"] { background-color: #006633; } /* Build - Green */
+        .workflow-title-cell[data-dbtl="T"] { background-color: #660033; } /* Test - Red */
+        .workflow-title-cell[data-dbtl="L"] { background-color: #663300; } /* Learn - Orange */
+
+        /* For High Contrast themes */
+        @media (forced-colors: active) {
+          .workflow-title-cell[data-dbtl="D"] { border-color: Highlight; }
+          .workflow-title-cell[data-dbtl="B"] { border-color: Highlight; }
+          .workflow-title-cell[data-dbtl="T"] { border-color: Highlight; }
+          .workflow-title-cell[data-dbtl="L"] { border-color: Highlight; }
         }
         .unit-operations-cell {
           display: flex;

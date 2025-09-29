@@ -121,36 +121,31 @@
   function layoutAndDraw() {
     const PADDING = 20;
     const DBTL_LABEL_WIDTH = 40;
-    const DBTL_CELL_WIDTH = 50;
     const WORKFLOW_CELL_WIDTH = 270;
     const VERTICAL_GAP = 40;
     let currentY = PADDING;
 
-    const hasAnySelection = state.workflows.some(wf => wf.selectedCycle);
+    // DBTL 사이클이 하나라도 있는지 확인 (왼쪽 여백 계산용)
+    const hasAnyDbtl = state.workflows.some(wf => !!document.getElementById(`wf-title-${wf.index}`)?.dataset.dbtl);
     const layoutData = [];
 
     // 1. 레이아웃 정보 계산 및 DOM 위치 설정
     state.workflows.forEach(wf => {
       const groupEl = document.getElementById(`wf-group-${wf.index}`);
       groupEl.style.display = 'block';
-
-      const dbtlCell = document.getElementById(`dbtl-cell-${wf.index}`);
       const titleCell = document.getElementById(`wf-title-${wf.index}`);
       const opsCell = document.getElementById(`ops-cell-${wf.index}`);
       
       const titleHeight = titleCell.offsetHeight;
       const opsHeight = opsCell.offsetHeight;
       const rowHeight = Math.max(titleHeight, opsHeight);
-
-      const leftPos = hasAnySelection ? PADDING + DBTL_LABEL_WIDTH : PADDING;
       
-      dbtlCell.style.top = `${currentY + (rowHeight / 2) - (dbtlCell.offsetHeight / 2)}px`;
-      dbtlCell.style.left = `${leftPos}px`;
+      const leftPos = hasAnyDbtl ? PADDING + DBTL_LABEL_WIDTH : PADDING;
       
       titleCell.style.top = `${currentY}px`;
-      titleCell.style.left = `${leftPos + DBTL_CELL_WIDTH}px`;
+      titleCell.style.left = `${leftPos}px`;
       
-      const opsCellX = leftPos + DBTL_CELL_WIDTH + WORKFLOW_CELL_WIDTH;
+      const opsCellX = leftPos + WORKFLOW_CELL_WIDTH;
       const opsCellY = currentY + (rowHeight / 2) - (opsHeight / 2);
       opsCell.style.top = `${opsCellY}px`;
       opsCell.style.left = `${opsCellX}px`;
@@ -181,25 +176,26 @@
     document.getElementById('arrow-svg-container').style.height = containerHeight;
     
     // 3. 계산된 정보를 바탕으로 라벨 및 화살표 그리기
-    updateDbtlCycleLabels(layoutData, PADDING, hasAnySelection);
+    updateDbtlCycleLabels(layoutData, PADDING, hasAnyDbtl);
     requestAnimationFrame(() => drawArrows(layoutData));
   }
 
-  function updateDbtlCycleLabels(layoutData, PADDING, hasAnySelection) {
+  function updateDbtlCycleLabels(layoutData, PADDING, hasAnyDbtl) {
     ['D', 'B', 'T', 'L'].forEach(cycle => {
         const labelEl = document.getElementById(`dbtl-label-${cycle}`);
         if (labelEl) labelEl.style.display = 'none';
     });
-    if (!hasAnySelection) return;
+    if (!hasAnyDbtl) return;
 
     const cycleGroups = {};
     layoutData.forEach(wfLayout => {
-        const wfState = state.workflows[wfLayout.index];
-        if (wfState.selectedCycle) {
-            if (!cycleGroups[wfState.selectedCycle]) {
-                cycleGroups[wfState.selectedCycle] = [];
+        const titleCell = document.getElementById(`wf-title-${wfLayout.index}`);
+        const dbtl = titleCell?.dataset.dbtl;
+        if (dbtl) {
+            if (!cycleGroups[dbtl]) {
+                cycleGroups[dbtl] = [];
             }
-            cycleGroups[wfState.selectedCycle].push(wfLayout);
+            cycleGroups[dbtl].push(wfLayout);
         }
     });
 
@@ -219,16 +215,11 @@
     state.workflows = [];
     document.querySelectorAll('.workflow-group').forEach((group) => {
       const index = parseInt(group.dataset.wfIndex, 10);
-      state.workflows[index] = { index: index, selectedCycle: null };
+      state.workflows[index] = { index: index };
     });
 
     document.querySelectorAll('[data-nav]').forEach(node => {
       node.addEventListener('click', (e) => navigateTo(node.getAttribute('data-nav')));
-    });
-
-    document.querySelectorAll('.dbtl-btn').forEach(btn => {
-      btn.addEventListener('click', handleDbtlButtonClick);
-      btn.style.display = 'inline-block'; 
     });
     
     const exportButton = document.getElementById('export-button');

@@ -8,6 +8,7 @@ export interface UnitOperation {
 export interface Workflow {
   title: string;       // 예: 001 WD070 Vector Design
   filePath: string;    // 이 워크플로우 파일의 절대 경로
+  dbtl?: 'D' | 'B' | 'T' | 'L'; // DBTL 사이클
   unitOperations: UnitOperation[];
 }
 
